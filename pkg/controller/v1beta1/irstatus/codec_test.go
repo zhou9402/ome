@@ -440,6 +440,8 @@ var rowFieldDispositions = map[string][]string{
 	"activeOrdinal":     {"activeOrdinalOne"},
 	"lastFailure":       {"entries"},
 	"announced":         {"entries"},
+	"lastPlacedNodes":   {"entries"},
+	"degradedTopology":  {"entries"},
 }
 
 func TestEveryRowFieldHasACodecDisposition(t *testing.T) {

@@ -160,6 +160,15 @@ func fullyPopulatedInstanceStatus(idx int32) v1beta1.OMENativeInstanceStatus {
 			Message:       "out of memory",
 			Time:          transition,
 		},
+		LastPlacedNodes: []string{"node-a", "node-b"},
+		DegradedTopology: &v1beta1.DegradedTopology{
+			TotalAccelerators:  7,
+			LastTransitionTime: &transition,
+			Nodes: []v1beta1.DegradedNodeAllocation{
+				{NodeName: "node-a", Accelerators: 4},
+				{NodeName: "node-b", Accelerators: 3},
+			},
+		},
 	}
 }
 

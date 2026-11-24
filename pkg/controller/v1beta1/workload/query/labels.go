@@ -52,7 +52,11 @@ const (
 	// width a gang was minted at is read from metadata without decoding the
 	// payload. Absent on single-pod revisions.
 	AnnotationWorkerSize = "ome.io/worker-size"
-	ManagedByOMENative   = "OMENative"
+	// AnnotationDegradedTopologyHash stamps the deterministic hash of the
+	// Instance's active DegradedTopology onto rendered degraded pods so
+	// operators and drift checks can identify degraded pod sets cleanly.
+	AnnotationDegradedTopologyHash = "ome.io/degraded-topology-hash"
+	ManagedByOMENative             = "OMENative"
 )
 
 // WorkloadOwnedLabel reports whether key is a label the workload stamps on

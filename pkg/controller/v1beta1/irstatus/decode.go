@@ -240,6 +240,10 @@ func copyRecords(row *v1beta1.OMENativeInstanceStatus, entry *v1beta1.InstanceSt
 	if len(entry.Announced) > 0 {
 		row.Announced = append([]string(nil), entry.Announced...)
 	}
+	if len(entry.LastPlacedNodes) > 0 {
+		row.LastPlacedNodes = append([]string(nil), entry.LastPlacedNodes...)
+	}
+	row.DegradedTopology = entry.DegradedTopology.DeepCopy()
 }
 
 // takeRecords hands the entry's records to the row as they are, for a
@@ -256,4 +260,8 @@ func takeRecords(row *v1beta1.OMENativeInstanceStatus, entry *v1beta1.InstanceSt
 	if len(entry.Announced) > 0 {
 		row.Announced = entry.Announced
 	}
+	if len(entry.LastPlacedNodes) > 0 {
+		row.LastPlacedNodes = entry.LastPlacedNodes
+	}
+	row.DegradedTopology = entry.DegradedTopology
 }

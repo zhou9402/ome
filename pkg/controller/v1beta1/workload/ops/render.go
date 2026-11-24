@@ -1,10 +1,14 @@
 package ops
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -158,6 +162,7 @@ func RenderWithRevision(
 			applyRequiredNodeExclusion(pod, exclusion.Node)
 		}
 	}
+	applyDegradedTopologyOverlay(pod, inst, runner, ordinal)
 
 	// Adapter-supplied hook: peer-env injection. The IR reconciler
 	// (the sole workload.Reconcile caller) wires it via
@@ -548,6 +553,23 @@ func buildOMENativeEnv(plan workload.ComponentPlan, inst workload.InstancePlan, 
 			corev1.EnvVar{Name: "OME_INSTANCE_POD_COUNT", Value: fmt.Sprintf("%d", inst.TotalPods())},
 		)
 	}
+	if inst.DegradedTopology != nil && len(inst.DegradedTopology.Nodes) > 0 {
+		rank := int(instancePodRank(inst, runner, ordinal))
+		if rank >= 0 && rank < len(inst.DegradedTopology.Nodes) {
+			var offset int32
+			for i := 0; i < rank; i++ {
+				offset += inst.DegradedTopology.Nodes[i].Accelerators
+			}
+			localCount := inst.DegradedTopology.Nodes[rank].Accelerators
+			total := inst.DegradedTopology.TotalAccelerators
+			env = append(env,
+				corev1.EnvVar{Name: "OME_POD_ACCELERATOR_COUNT", Value: strconv.Itoa(int(localCount))},
+				corev1.EnvVar{Name: "OME_INSTANCE_ACCELERATOR_OFFSET", Value: strconv.Itoa(int(offset))},
+				corev1.EnvVar{Name: "OME_INSTANCE_ACCELERATOR_TOTAL", Value: strconv.Itoa(int(total))},
+				corev1.EnvVar{Name: "PARALLELISM_SIZE", Value: strconv.Itoa(int(total))},
+			)
+		}
+	}
 	return env
 }
 
@@ -774,4 +796,161 @@ func podRequestsResource(pod *corev1.Pod, name string) bool {
 		}
 	}
 	return false
+}
+
+const nvidiaGPUResourceName corev1.ResourceName = "nvidia.com/gpu"
+
+// DegradedTopologyHash returns a deterministic short hex hash identifying a
+// DegradedTopology's total accelerator count and ordered per-node allocations.
+func DegradedTopologyHash(topo *workload.DegradedTopology) string {
+	if topo == nil || len(topo.Nodes) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(strconv.Itoa(int(topo.TotalAccelerators)))
+	b.WriteByte(':')
+	for i, n := range topo.Nodes {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(n.NodeName)
+		b.WriteByte('=')
+		b.WriteString(strconv.Itoa(int(n.Accelerators)))
+	}
+	sum := sha256.Sum256([]byte(b.String()))
+	return hex.EncodeToString(sum[:6])
+}
+
+// applyDegradedTopologyOverlay applies per-ordinal heterogeneous GPU overrides
+// when inst carries an active DegradedTopology:
+//   - pins the pod to Nodes[rank].NodeName via required NodeAffinity
+//     (kubernetes.io/hostname In [nodeName]) without setting spec.nodeName;
+//   - overrides the runner container's nvidia.com/gpu Requests and Limits to
+//     Nodes[rank].Accelerators;
+//   - stamps ome.io/degraded-topology-hash annotation onto the pod.
+func applyDegradedTopologyOverlay(pod *corev1.Pod, inst workload.InstancePlan, runner workload.RunnerPlan, ordinal int32) {
+	if inst.DegradedTopology == nil || len(inst.DegradedTopology.Nodes) == 0 {
+		return
+	}
+	rank := int(instancePodRank(inst, runner, ordinal))
+	if rank < 0 || rank >= len(inst.DegradedTopology.Nodes) {
+		return
+	}
+	alloc := inst.DegradedTopology.Nodes[rank]
+	if alloc.NodeName != "" {
+		applyRequiredNodePin(pod, alloc.NodeName)
+	}
+	if alloc.Accelerators > 0 {
+		overridePodGPUResources(pod, alloc.Accelerators)
+	}
+	if hash := DegradedTopologyHash(inst.DegradedTopology); hash != "" {
+		if pod.Annotations == nil {
+			pod.Annotations = make(map[string]string, 1)
+		}
+		pod.Annotations[query.AnnotationDegradedTopologyHash] = hash
+	}
+}
+
+// applyRequiredNodePin appends a required kubernetes.io/hostname In [node]
+// term to every NodeSelectorTerm (creating one when absent) so the pod is
+// pinned to node while still running through kube-scheduler and DRA admission.
+func applyRequiredNodePin(pod *corev1.Pod, node string) {
+	if node == "" {
+		return
+	}
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &corev1.Affinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &corev1.NodeAffinity{}
+	}
+	na := pod.Spec.Affinity.NodeAffinity
+	req := corev1.NodeSelectorRequirement{
+		Key:      "kubernetes.io/hostname",
+		Operator: corev1.NodeSelectorOpIn,
+		Values:   []string{node},
+	}
+	if na.RequiredDuringSchedulingIgnoredDuringExecution == nil || len(na.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms) == 0 {
+		na.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{
+			NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{req}}},
+		}
+		return
+	}
+	for i := range na.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+		term := &na.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i]
+		// Strip any conflicting NotIn expression that excludes the pinned node.
+		filtered := term.MatchExpressions[:0]
+		for _, expr := range term.MatchExpressions {
+			if expr.Key == "kubernetes.io/hostname" && expr.Operator == corev1.NodeSelectorOpNotIn {
+				kept := make([]string, 0, len(expr.Values))
+				for _, v := range expr.Values {
+					if v != node {
+						kept = append(kept, v)
+					}
+				}
+				if len(kept) == 0 {
+					continue
+				}
+				expr.Values = kept
+			}
+			filtered = append(filtered, expr)
+		}
+		term.MatchExpressions = filtered
+		if !hasHostnameIn(term.MatchExpressions, node) {
+			term.MatchExpressions = append(term.MatchExpressions, req)
+		}
+	}
+}
+
+func hasHostnameIn(exprs []corev1.NodeSelectorRequirement, hostname string) bool {
+	for _, expr := range exprs {
+		if expr.Key != "kubernetes.io/hostname" || expr.Operator != corev1.NodeSelectorOpIn {
+			continue
+		}
+		if len(expr.Values) == 1 && expr.Values[0] == hostname {
+			return true
+		}
+	}
+	return false
+}
+
+func overridePodGPUResources(pod *corev1.Pod, count int32) {
+	qty := *resource.NewQuantity(int64(count), resource.DecimalSI)
+	updated := false
+	for i := range pod.Spec.Containers {
+		c := &pod.Spec.Containers[i]
+		_, hasReq := c.Resources.Requests[nvidiaGPUResourceName]
+		_, hasLim := c.Resources.Limits[nvidiaGPUResourceName]
+		if !hasReq && !hasLim {
+			continue
+		}
+		if c.Resources.Requests == nil {
+			c.Resources.Requests = corev1.ResourceList{}
+		}
+		if c.Resources.Limits == nil {
+			c.Resources.Limits = corev1.ResourceList{}
+		}
+		c.Resources.Requests[nvidiaGPUResourceName] = qty.DeepCopy()
+		c.Resources.Limits[nvidiaGPUResourceName] = qty.DeepCopy()
+		updated = true
+	}
+	if updated || len(pod.Spec.Containers) == 0 {
+		return
+	}
+	targetIdx := 0
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == constants.MainContainerName {
+			targetIdx = i
+			break
+		}
+	}
+	c := &pod.Spec.Containers[targetIdx]
+	if c.Resources.Requests == nil {
+		c.Resources.Requests = corev1.ResourceList{}
+	}
+	if c.Resources.Limits == nil {
+		c.Resources.Limits = corev1.ResourceList{}
+	}
+	c.Resources.Requests[nvidiaGPUResourceName] = qty.DeepCopy()
+	c.Resources.Limits[nvidiaGPUResourceName] = qty.DeepCopy()
 }

@@ -136,6 +136,9 @@ type ComponentPlan struct {
 // own when rev changes no width in it and a copy at rev's width otherwise,
 // so a caller reads it and never writes into it.
 func (p ComponentPlan) RunnersFor(inst InstancePlan, rev string) []RunnerPlan {
+	if inst.DegradedTopology != nil && len(inst.DegradedTopology.Nodes) > 0 {
+		return degradedRunners(p.layoutFor(inst), len(inst.DegradedTopology.Nodes))
+	}
 	base := p.layoutFor(inst)
 	if len(base) == 0 {
 		return nil
@@ -153,6 +156,25 @@ func (p ComponentPlan) RunnersFor(inst InstancePlan, rev string) []RunnerPlan {
 	return out
 }
 
+// degradedRunners builds the effective Runner layout for an Instance running
+// under an active DegradedTopology of nodeCount nodes. Multi-pod layouts keep
+// leader(1) + worker(nodeCount-1); single-pod layouts stay default(1).
+func degradedRunners(base []RunnerPlan, nodeCount int) []RunnerPlan {
+	for _, r := range base {
+		if r.Name == RunnerLeader {
+			workerSize := int32(0)
+			if nodeCount > 1 {
+				workerSize = int32(nodeCount - 1)
+			}
+			return []RunnerPlan{
+				{Name: RunnerLeader, Size: 1},
+				{Name: RunnerWorker, Size: workerSize},
+			}
+		}
+	}
+	return []RunnerPlan{{Name: RunnerDefault, Size: 1}}
+}
+
 // workerOfAnotherWidth reports whether a worker of layout runs at a width
 // other than size, so that the layout at size is another layout.
 func workerOfAnotherWidth(layout []RunnerPlan, size int32) bool {
@@ -168,6 +190,9 @@ func workerOfAnotherWidth(layout []RunnerPlan, size int32) bool {
 // rev: the pods of the layout RunnersFor builds, counted without building
 // it. The update selection reads it for every Instance on every pass.
 func (p ComponentPlan) TotalPodsFor(inst InstancePlan, rev string) int32 {
+	if inst.DegradedTopology != nil && len(inst.DegradedTopology.Nodes) > 0 {
+		return int32(len(inst.DegradedTopology.Nodes))
+	}
 	size, known := p.workerSizeAt(rev)
 	var total int32
 	for _, runner := range p.layoutFor(inst) {
@@ -258,6 +283,11 @@ type InstancePlan struct {
 	// hostname term the migration overlay uses, on a pod of the
 	// revision the entry was recorded for. Empty for normal Instances.
 	ExcludedNodes []NodeExclusion
+
+	// DegradedTopology carries the Instance's active automatic in-place
+	// heterogeneous accelerator topology when degraded. Nil in healthy
+	// steady state.
+	DegradedTopology *DegradedTopology
 
 	// PeerHostnames is an optional render-time cache of the Instance's
 	// ordered peer-DNS host list (one entry per pod, flat gang-rank

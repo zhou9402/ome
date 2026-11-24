@@ -102,7 +102,7 @@ spec:
                     type: string
                 type: object
               decoder:
-{{- include "ome-crd.schema.f8a6c3ee73a4" . | nindent 16 }}
+{{- include "ome-crd.schema.8bb882e67880" . | nindent 16 }}
               deploymentMode:
                 enum:
                 - OMENative
@@ -609,7 +609,7 @@ spec:
 {{- include "ome-crd.schema.f929430e068e" . | nindent 20 }}
                 type: object
               engine:
-{{- include "ome-crd.schema.f8a6c3ee73a4" . | nindent 16 }}
+{{- include "ome-crd.schema.8bb882e67880" . | nindent 16 }}
               model:
                 properties:
                   apiGroup:

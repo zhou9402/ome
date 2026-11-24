@@ -63,6 +63,7 @@ func (d *Decoder) role() pairedRole {
 		topologyKey:       spec.TopologyKey,
 		topologySpread:    spec.TopologySpread,
 		topologySpreadKey: spec.TopologySpreadKey,
+		autoDegrade:       spec.AutoDegrade,
 		render: func(ctx context.Context, p *render.Piece, isvc *v1beta1.InferenceService) (render.Rendered, error) {
 			return render.RenderDecoder(ctx, p, isvc, spec)
 		},

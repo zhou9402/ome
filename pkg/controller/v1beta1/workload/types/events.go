@@ -404,4 +404,14 @@ const (
 	// warning: announced once per Instance incarnation on the Instance's
 	// own row (status.Announce), whatever attempt the row is on.
 	EventReasonGangSplitRisk EventReason = "GangSplitRisk"
+
+	// EventReasonAutoDegraded fires when OME automatically transitions an
+	// Instance to an in-place heterogeneous DegradedTopology after its pods
+	// remained Pending/Unschedulable past TriggerTimeoutSeconds.
+	EventReasonAutoDegraded EventReason = "AutoDegraded"
+
+	// EventReasonAutoDegradeRefused fires when an Instance qualifies for
+	// auto-degrade timeout evaluation but the surviving accelerators fall
+	// below AutoDegradePolicy.MinTotalAccelerators.
+	EventReasonAutoDegradeRefused EventReason = "AutoDegradeRefused"
 )

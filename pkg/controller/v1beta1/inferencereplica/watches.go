@@ -349,6 +349,9 @@ func podReconcileRelevantChanged(oldPod, newPod *corev1.Pod) bool {
 	if podreadiness.IsServing(oldPod) != podreadiness.IsServing(newPod) {
 		return true
 	}
+	if podScheduledConditionChanged(oldPod, newPod) {
+		return true
+	}
 	if containerStatusesRelevantChanged(oldPod.Status.ContainerStatuses, newPod.Status.ContainerStatuses) {
 		return true
 	}
@@ -359,6 +362,24 @@ func podReconcileRelevantChanged(oldPod, newPod *corev1.Pod) bool {
 		return true
 	}
 	return routingLabelsChanged(oldPod, newPod)
+}
+
+func podScheduledConditionChanged(oldPod, newPod *corev1.Pod) bool {
+	oldStatus, oldReason := podScheduledCondition(oldPod)
+	newStatus, newReason := podScheduledCondition(newPod)
+	return oldStatus != newStatus || oldReason != newReason
+}
+
+func podScheduledCondition(pod *corev1.Pod) (corev1.ConditionStatus, string) {
+	if pod == nil {
+		return "", ""
+	}
+	for i := range pod.Status.Conditions {
+		if pod.Status.Conditions[i].Type == corev1.PodScheduled {
+			return pod.Status.Conditions[i].Status, pod.Status.Conditions[i].Reason
+		}
+	}
+	return "", ""
 }
 
 // containerStatusesRelevantChanged compares the fields whose change alone

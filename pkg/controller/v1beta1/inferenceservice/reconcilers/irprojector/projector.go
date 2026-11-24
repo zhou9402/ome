@@ -198,6 +198,10 @@ type Params struct {
 	// TopologySpread; nil defaults to the co-location TopologyKey.
 	TopologySpreadKey *string
 
+	// AutoDegrade is the resolved automatic in-place heterogeneous DEP
+	// degradation policy for this Component, projected onto ir.Spec.AutoDegrade.
+	AutoDegrade *v1beta1.AutoDegradePolicy
+
 	// PacingPartition sizes the rollout-control partition the ISVC
 	// controller's canary machine projects for this Component (the current
 	// step's hold, or the full plan-gate hold) against the replica count
@@ -641,6 +645,7 @@ func projectTopology(ir *v1beta1.InferenceReplica, p Params) {
 	ir.Spec.TopologyKey = p.TopologyKey
 	ir.Spec.TopologySpread = p.TopologySpread
 	ir.Spec.TopologySpreadKey = p.TopologySpreadKey
+	ir.Spec.AutoDegrade = p.AutoDegrade.DeepCopy()
 }
 
 // projectPacingAndPairing writes the pacing block a canary asks for, sized

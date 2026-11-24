@@ -47,6 +47,23 @@ spec:
               type: object
             spec:
               properties:
+                autoDegrade:
+                  properties:
+                    cooldownSeconds:
+                      format: int32
+                      minimum: 0
+                      type: integer
+                    enabled:
+                      type: boolean
+                    minTotalAccelerators:
+                      format: int32
+                      minimum: 1
+                      type: integer
+                    triggerTimeoutSeconds:
+                      format: int32
+                      minimum: 1
+                      type: integer
+                  type: object
                 autoscaler:
                   properties:
                     class:
@@ -4033,6 +4050,34 @@ spec:
                             x-kubernetes-list-map-keys:
                               - type
                             x-kubernetes-list-type: map
+                          degradedTopology:
+                            properties:
+                              lastTransitionTime:
+                                format: date-time
+                                type: string
+                              nodes:
+                                items:
+                                  properties:
+                                    accelerators:
+                                      format: int32
+                                      minimum: 1
+                                      type: integer
+                                    nodeName:
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                    - accelerators
+                                    - nodeName
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              totalAccelerators:
+                                format: int32
+                                minimum: 1
+                                type: integer
+                            required:
+                              - totalAccelerators
+                            type: object
                           index:
                             format: int32
                             minimum: 0
@@ -4056,6 +4101,12 @@ spec:
                             required:
                               - podName
                             type: object
+                          lastPlacedNodes:
+                            items:
+                              type: string
+                            minItems: 1
+                            type: array
+                            x-kubernetes-list-type: atomic
                           operation:
                             properties:
                               capacityRefusedAt:
@@ -4123,8 +4174,8 @@ spec:
                           - index
                         type: object
                         x-kubernetes-validations:
-                          - message: an entry must carry at least one of conditions, readySince, operation, lastFailure, or announced
-                            rule: has(self.conditions) || has(self.readySince) || has(self.operation) || has(self.lastFailure) || has(self.announced)
+                          - message: an entry must carry at least one of conditions, readySince, operation, lastFailure, announced, lastPlacedNodes, or degradedTopology
+                            rule: has(self.conditions) || has(self.readySince) || has(self.operation) || has(self.lastFailure) || has(self.announced) || has(self.lastPlacedNodes) || has(self.degradedTopology)
                       minItems: 1
                       type: array
                       x-kubernetes-list-type: atomic
@@ -4338,6 +4389,34 @@ spec:
                         x-kubernetes-list-map-keys:
                           - type
                         x-kubernetes-list-type: map
+                      degradedTopology:
+                        properties:
+                          lastTransitionTime:
+                            format: date-time
+                            type: string
+                          nodes:
+                            items:
+                              properties:
+                                accelerators:
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                                nodeName:
+                                  minLength: 1
+                                  type: string
+                              required:
+                                - accelerators
+                                - nodeName
+                              type: object
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          totalAccelerators:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        required:
+                          - totalAccelerators
+                        type: object
                       incarnation:
                         format: int64
                         type: integer
@@ -4363,6 +4442,11 @@ spec:
                         required:
                           - podName
                         type: object
+                      lastPlacedNodes:
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       nodesOccupied:
                         items:
                           type: string

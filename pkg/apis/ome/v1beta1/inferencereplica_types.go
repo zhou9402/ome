@@ -263,6 +263,11 @@ type InferenceReplicaSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
+
+	// AutoDegrade configures automatic in-place heterogeneous DEP degradation
+	// when a multi-node Instance cannot schedule at full GPU capacity.
+	// +optional
+	AutoDegrade *AutoDegradePolicy `json:"autoDegrade,omitempty"`
 }
 
 // ParentReference holds the InferenceService owner reference info.
@@ -766,7 +771,7 @@ type InstanceStatusCountGroup struct {
 
 // InstanceStatusEntry carries the records of one Instance that are not
 // grouped into columns. Each record is the dense row's value, unchanged.
-// +kubebuilder:validation:XValidation:rule="has(self.conditions) || has(self.readySince) || has(self.operation) || has(self.lastFailure) || has(self.announced)",message="an entry must carry at least one of conditions, readySince, operation, lastFailure, or announced"
+// +kubebuilder:validation:XValidation:rule="has(self.conditions) || has(self.readySince) || has(self.operation) || has(self.lastFailure) || has(self.announced) || has(self.lastPlacedNodes) || has(self.degradedTopology)",message="an entry must carry at least one of conditions, readySince, operation, lastFailure, announced, lastPlacedNodes, or degradedTopology"
 type InstanceStatusEntry struct {
 	// Index is the Instance this entry belongs to; it is a member.
 	// +kubebuilder:validation:Minimum=0
@@ -799,6 +804,17 @@ type InstanceStatusEntry struct {
 	// +kubebuilder:validation:MinItems=1
 	// +listType=set
 	Announced []string `json:"announced,omitempty"`
+
+	// LastPlacedNodes is the Instance's ordered list of last-placed nodes.
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +listType=atomic
+	LastPlacedNodes []string `json:"lastPlacedNodes,omitempty"`
+
+	// DegradedTopology is the Instance's active automatic in-place degraded
+	// accelerator topology.
+	// +optional
+	DegradedTopology *DegradedTopology `json:"degradedTopology,omitempty"`
 }
 
 // RetryBlockState is the retry authority state for one target revision.

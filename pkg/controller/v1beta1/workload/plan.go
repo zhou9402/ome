@@ -47,10 +47,15 @@ func BuildPlan(component types.ComponentType, desired types.WorkloadDesiredSpec,
 		// An Instance renders the width its own revision recorded, so a gang
 		// settled on an older revision keeps its layout until the roll takes it,
 		// and a new Instance the width of the revision it is built on.
+		var degraded *types.DegradedTopology
+		if row := observed.Instance(idx); row != nil && row.DegradedTopology != nil {
+			degraded = row.DegradedTopology.DeepCopy()
+		}
 		instances[i] = types.InstancePlan{
-			Index:       idx,
-			Incarnation: incarnationForIndex(&observed, idx),
-			Runners:     layout.RunnersFor(types.InstancePlan{Runners: runners}, renderedRevision(desired, &observed, idx)),
+			Index:            idx,
+			Incarnation:      incarnationForIndex(&observed, idx),
+			Runners:          layout.RunnersFor(types.InstancePlan{Runners: runners, DegradedTopology: degraded}, renderedRevision(desired, &observed, idx)),
+			DegradedTopology: degraded,
 			// Relocation-directive memory: the adapter projects the
 			// per-instance node-exclusion list from the audit ledger;
 			// Render turns it into a required NotIn hostname term so

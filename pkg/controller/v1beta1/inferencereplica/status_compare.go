@@ -64,7 +64,18 @@ func instanceStatusEqual(a, b *v1beta1.OMENativeInstanceStatus) bool {
 		operationsEqual(a.Operation, b.Operation) &&
 		a.ActiveOrdinal == b.ActiveOrdinal &&
 		terminationsEqual(a.LastFailure, b.LastFailure) &&
-		slices.Equal(a.Announced, b.Announced)
+		slices.Equal(a.Announced, b.Announced) &&
+		slices.Equal(a.LastPlacedNodes, b.LastPlacedNodes) &&
+		degradedTopologyEqual(a.DegradedTopology, b.DegradedTopology)
+}
+
+func degradedTopologyEqual(a, b *v1beta1.DegradedTopology) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.TotalAccelerators == b.TotalAccelerators &&
+		timePointersEqual(a.LastTransitionTime, b.LastTransitionTime) &&
+		slices.Equal(a.Nodes, b.Nodes)
 }
 
 // conditionsEqual reads two condition lists in order; a nil list and an

@@ -596,6 +596,23 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    autoDegrade:
+                      properties:
+                        cooldownSeconds:
+                          format: int32
+                          minimum: 0
+                          type: integer
+                        enabled:
+                          type: boolean
+                        minTotalAccelerators:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        triggerTimeoutSeconds:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                      type: object
                     automountServiceAccountToken:
                       type: boolean
                     autoscaler:
@@ -16880,6 +16897,23 @@ spec:
                     annotations:
                       additionalProperties:
                         type: string
+                      type: object
+                    autoDegrade:
+                      properties:
+                        cooldownSeconds:
+                          format: int32
+                          minimum: 0
+                          type: integer
+                        enabled:
+                          type: boolean
+                        minTotalAccelerators:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        triggerTimeoutSeconds:
+                          format: int32
+                          minimum: 1
+                          type: integer
                       type: object
                     automountServiceAccountToken:
                       type: boolean

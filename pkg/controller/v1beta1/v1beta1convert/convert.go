@@ -314,6 +314,10 @@ func InstanceStatusToWorkload(v v1beta1.OMENativeInstanceStatus) workloadtypes.I
 	if v.Announced != nil {
 		out.Announced = append([]string(nil), v.Announced...)
 	}
+	if v.LastPlacedNodes != nil {
+		out.LastPlacedNodes = append([]string(nil), v.LastPlacedNodes...)
+	}
+	out.DegradedTopology = DegradedTopologyToWorkload(v.DegradedTopology)
 	return out
 }
 
@@ -347,6 +351,54 @@ func InstanceStatusFromWorkload(w workloadtypes.InstanceStatus) v1beta1.OMENativ
 	}
 	if w.Announced != nil {
 		out.Announced = append([]string(nil), w.Announced...)
+	}
+	if w.LastPlacedNodes != nil {
+		out.LastPlacedNodes = append([]string(nil), w.LastPlacedNodes...)
+	}
+	out.DegradedTopology = DegradedTopologyFromWorkload(w.DegradedTopology)
+	return out
+}
+
+// DegradedTopologyToWorkload converts a *v1beta1.DegradedTopology to its
+// workload-side mirror. Returns nil when v is nil.
+func DegradedTopologyToWorkload(v *v1beta1.DegradedTopology) *workloadtypes.DegradedTopology {
+	if v == nil {
+		return nil
+	}
+	out := &workloadtypes.DegradedTopology{
+		TotalAccelerators:  v.TotalAccelerators,
+		LastTransitionTime: v.LastTransitionTime.DeepCopy(),
+	}
+	if v.Nodes != nil {
+		out.Nodes = make([]workloadtypes.DegradedNodeAllocation, len(v.Nodes))
+		for i, n := range v.Nodes {
+			out.Nodes[i] = workloadtypes.DegradedNodeAllocation{
+				NodeName:     n.NodeName,
+				Accelerators: n.Accelerators,
+			}
+		}
+	}
+	return out
+}
+
+// DegradedTopologyFromWorkload converts a *workloadtypes.DegradedTopology to
+// *v1beta1.DegradedTopology. Returns nil when w is nil.
+func DegradedTopologyFromWorkload(w *workloadtypes.DegradedTopology) *v1beta1.DegradedTopology {
+	if w == nil {
+		return nil
+	}
+	out := &v1beta1.DegradedTopology{
+		TotalAccelerators:  w.TotalAccelerators,
+		LastTransitionTime: w.LastTransitionTime.DeepCopy(),
+	}
+	if w.Nodes != nil {
+		out.Nodes = make([]v1beta1.DegradedNodeAllocation, len(w.Nodes))
+		for i, n := range w.Nodes {
+			out.Nodes[i] = v1beta1.DegradedNodeAllocation{
+				NodeName:     n.NodeName,
+				Accelerators: n.Accelerators,
+			}
+		}
 	}
 	return out
 }

@@ -298,6 +298,21 @@ type OMENativeInstanceStatus struct {
 	// +optional
 	// +listType=set
 	Announced []string `json:"announced,omitempty"`
+
+	// LastPlacedNodes records the ordered list of node names (flat pod rank
+	// order: leader first, then worker-0..k) where this Instance's pods were
+	// last scheduled or running. Persisted across pod deletions during
+	// RecreateInstanceOnPodRestart so automatic in-place degradation remembers
+	// the original nodes.
+	// +optional
+	// +listType=atomic
+	LastPlacedNodes []string `json:"lastPlacedNodes,omitempty"`
+
+	// DegradedTopology records the active automatic in-place heterogeneous
+	// accelerator allocation for this Instance. Nil in healthy steady state;
+	// populated only while degraded.
+	// +optional
+	DegradedTopology *DegradedTopology `json:"degradedTopology,omitempty"`
 }
 
 // InstanceTermination captures the container-termination diagnostics of

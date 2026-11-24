@@ -169,17 +169,21 @@ func entryOf(row *v1beta1.OMENativeInstanceStatus, readySinceInColumns bool) (v1
 		readySince = nil
 	}
 	if len(row.Conditions) == 0 && readySince == nil && row.Operation == nil && row.LastFailure == nil &&
-		len(row.Announced) == 0 {
+		len(row.Announced) == 0 && len(row.LastPlacedNodes) == 0 && row.DegradedTopology == nil {
 		return v1beta1.InstanceStatusEntry{}, false
 	}
 	entry := v1beta1.InstanceStatusEntry{
-		Index:       row.Index,
-		ReadySince:  readySince.DeepCopy(),
-		Operation:   row.Operation.DeepCopy(),
-		LastFailure: row.LastFailure.DeepCopy(),
+		Index:            row.Index,
+		ReadySince:       readySince.DeepCopy(),
+		Operation:        row.Operation.DeepCopy(),
+		LastFailure:      row.LastFailure.DeepCopy(),
+		DegradedTopology: row.DegradedTopology.DeepCopy(),
 	}
 	if len(row.Announced) > 0 {
 		entry.Announced = append([]string(nil), row.Announced...)
+	}
+	if len(row.LastPlacedNodes) > 0 {
+		entry.LastPlacedNodes = append([]string(nil), row.LastPlacedNodes...)
 	}
 	if len(row.Conditions) > 0 {
 		entry.Conditions = cloneConditions(row.Conditions)

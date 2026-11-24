@@ -341,6 +341,48 @@ type InstanceStatus struct {
 	// reach an operator once rather than once per pass. Mirrors the CRD
 	// OMENativeInstanceStatus.Announced.
 	Announced []string
+
+	// LastPlacedNodes records the ordered list of node names (flat pod rank
+	// order) where this Instance's pods were last scheduled or running.
+	// Mirrors the CRD OMENativeInstanceStatus.LastPlacedNodes.
+	LastPlacedNodes []string
+
+	// DegradedTopology records the active automatic in-place heterogeneous
+	// accelerator layout for this Instance. Mirrors the CRD
+	// OMENativeInstanceStatus.DegradedTopology.
+	DegradedTopology *DegradedTopology
+}
+
+// DegradedNodeAllocation is the workload-side mirror of
+// v1beta1.DegradedNodeAllocation.
+type DegradedNodeAllocation struct {
+	NodeName     string
+	Accelerators int32
+}
+
+// DegradedTopology is the workload-side mirror of v1beta1.DegradedTopology.
+type DegradedTopology struct {
+	TotalAccelerators  int32
+	LastTransitionTime *metav1.Time
+	Nodes              []DegradedNodeAllocation
+}
+
+// DeepCopy returns an independent copy of DegradedTopology, or nil when nil.
+func (d *DegradedTopology) DeepCopy() *DegradedTopology {
+	if d == nil {
+		return nil
+	}
+	out := &DegradedTopology{
+		TotalAccelerators: d.TotalAccelerators,
+	}
+	if d.LastTransitionTime != nil {
+		t := *d.LastTransitionTime
+		out.LastTransitionTime = &t
+	}
+	if d.Nodes != nil {
+		out.Nodes = append([]DegradedNodeAllocation(nil), d.Nodes...)
+	}
+	return out
 }
 
 // InstanceTermination captures the container-termination diagnostics of a

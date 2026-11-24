@@ -427,6 +427,13 @@ type replicaPass struct {
 	// its first reader built. Nil until the engine's deps are built; the
 	// publication of a pass that ends before them lists on its own.
 	cachedPods *workloadtypes.CachedPodList
+	// autoDegradeRequeue is the shortest remaining wait for an Instance's
+	// AutoDegrade triggerTimeoutSeconds or cooldownSeconds to elapse.
+	autoDegradeRequeue time.Duration
+	// autoDegradeWaitingOnPlacement is true when autoDegradeRequeue comes
+	// from an Instance whose pods are all materialized and waiting only on
+	// scheduling/timeout (no missing pods to create).
+	autoDegradeWaitingOnPlacement bool
 }
 
 // passStep is one step of a pass. It reports whether the pass goes on; a
@@ -471,6 +478,7 @@ func (p *replicaPass) run(ctx context.Context) (result ctrl.Result, err error) {
 		p.recordUpdateRevision,
 		p.resolvePeerRevisions,
 		p.buildEngineDeps,
+		p.reconcileAutoDegrade,
 		p.observePodGroups,
 		p.ensurePodGroups,
 		p.provisionSlices,
@@ -478,6 +486,13 @@ func (p *replicaPass) run(ctx context.Context) (result ctrl.Result, err error) {
 		p.tendSlices,
 		p.reconcileHeadlessService,
 	})
+	if err == nil && p.autoDegradeRequeue > 0 {
+		if p.autoDegradeWaitingOnPlacement && p.result.Requeue && p.result.RequeueAfter == 0 {
+			p.result = ctrl.Result{RequeueAfter: p.autoDegradeRequeue}
+		} else {
+			p.result = foldRequeueAfter(p.result, p.autoDegradeRequeue)
+		}
+	}
 	return p.result, err
 }
 

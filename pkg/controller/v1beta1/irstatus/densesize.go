@@ -127,6 +127,12 @@ func (s *denseSizer) rowSize(row *v1beta1.OMENativeInstanceStatus) (int, error) 
 	if len(row.Announced) > 0 {
 		object.encoded("announced", row.Announced)
 	}
+	if len(row.LastPlacedNodes) > 0 {
+		object.encoded("lastPlacedNodes", row.LastPlacedNodes)
+	}
+	if row.DegradedTopology != nil {
+		object.encoded("degradedTopology", row.DegradedTopology)
+	}
 	return object.total(), object.err
 }
 

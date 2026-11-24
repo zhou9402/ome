@@ -374,6 +374,11 @@ type EngineSpec struct {
 	// service's constraints for this component.
 	// +optional
 	AcceleratorOverride *AcceleratorSelector `json:"acceleratorOverride,omitempty"`
+
+	// AutoDegrade configures automatic in-place heterogeneous DEP degradation
+	// when a multi-node Instance cannot schedule at full GPU capacity.
+	// +optional
+	AutoDegrade *AutoDegradePolicy `json:"autoDegrade,omitempty"`
 }
 
 // TopologySpreadPolicy selects how a component's instances spread across
@@ -477,6 +482,11 @@ type DecoderSpec struct {
 	// service's constraints for this component.
 	// +optional
 	AcceleratorOverride *AcceleratorSelector `json:"acceleratorOverride,omitempty"`
+
+	// AutoDegrade configures automatic in-place heterogeneous DEP degradation
+	// when a multi-node Instance cannot schedule at full GPU capacity.
+	// +optional
+	AutoDegrade *AutoDegradePolicy `json:"autoDegrade,omitempty"`
 }
 
 // EncoderSpec defines the configuration for the Encoder component of an

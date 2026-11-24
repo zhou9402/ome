@@ -33,6 +33,7 @@ type pairedRole struct {
 	topologyKey       *string
 	topologySpread    *v1beta1.TopologySpreadPolicy
 	topologySpreadKey *string
+	autoDegrade       *v1beta1.AutoDegradePolicy
 	// render renders the role's pod templates from its merged block.
 	render func(ctx context.Context, p *render.Piece, isvc *v1beta1.InferenceService) (render.Rendered, error)
 }
@@ -132,6 +133,7 @@ func reconcilePairedRoleDeployment(ctx context.Context, b *BaseComponentFields, 
 			TopologyKey:               role.topologyKey,
 			TopologySpread:            role.topologySpread,
 			TopologySpreadKey:         role.topologySpreadKey,
+			AutoDegrade:               role.autoDegrade,
 			PacingPartition:           b.PacingPartition,
 			RollbackToRevision:        b.RollbackToRevision,
 			CoordinatorFollower:       b.CoordinatorFollower,

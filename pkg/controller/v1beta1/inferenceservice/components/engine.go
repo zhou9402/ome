@@ -178,6 +178,7 @@ func (e *Engine) reconcileDeployment(ctx context.Context, isvc *v1beta1.Inferenc
 			TopologyKey:               e.engineSpec.TopologyKey,
 			TopologySpread:            e.engineSpec.TopologySpread,
 			TopologySpreadKey:         e.engineSpec.TopologySpreadKey,
+			AutoDegrade:               e.engineSpec.AutoDegrade,
 			PacingPartition:           e.PacingPartition,
 			RollbackToRevision:        e.RollbackToRevision,
 			CoordinatorFollower:       e.CoordinatorFollower,

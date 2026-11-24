@@ -688,6 +688,65 @@ func StampRestartRevision(ctx context.Context, input types.ReconcileInput, idx i
 	})
 }
 
+// CommitDegradedTopology persists an automatic in-place DegradedTopology onto
+// Instance idx, bumps Incarnation, and opens a Restart/Drain operation so the
+// Restart machine cleanly drains and deletes the old incarnation and rebuilds
+// the Instance using the degraded per-node accelerator layout. Cooldown and
+// strictly-fewer-accelerators guards are re-verified inside the RMW closure.
+func CommitDegradedTopology(
+	ctx context.Context,
+	input types.ReconcileInput,
+	idx int32,
+	newTopo *types.DegradedTopology,
+	cooldown time.Duration,
+	rollTargetName string,
+	reason string,
+	timeout time.Duration,
+) (newIncarnation int64, committed bool, err error) {
+	now := input.Now()
+	nowMeta := metav1.NewTime(now.Truncate(time.Second))
+	err = input.MutateInstance(ctx, idx, func(s *types.InstanceStatus) bool {
+		if s.DegradedTopology != nil && s.DegradedTopology.LastTransitionTime != nil {
+			if now.Sub(s.DegradedTopology.LastTransitionTime.Time) < cooldown {
+				return false
+			}
+		}
+		if s.DegradedTopology != nil && s.DegradedTopology.TotalAccelerators <= newTopo.TotalAccelerators {
+			return false
+		}
+		s.DegradedTopology = newTopo.DeepCopy()
+		if s.Incarnation == 0 {
+			s.Incarnation = 1
+		}
+		s.Incarnation++
+		newIncarnation = s.Incarnation
+		targetRev := s.RunningRevision
+		if targetRev == "" {
+			targetRev = s.TargetRevision
+		}
+		if targetRev == "" && s.Operation != nil {
+			targetRev = s.Operation.TargetRevision
+		}
+		if targetRev == "" {
+			targetRev = rollTargetName
+		}
+		s.Phase = types.InstancePhaseRestarting
+		s.Operation = &types.InstanceOperation{
+			ID:             fmt.Sprintf("restart-%d-%d", idx, s.Incarnation),
+			Type:           types.InstanceOperationRestart,
+			Step:           types.RestartStepDrain,
+			StartedAt:      nowMeta,
+			LastProgressAt: nowMeta,
+			Deadline:       types.DeadlineAt(nowMeta, timeout),
+			TargetRevision: targetRev,
+			Reason:         reason,
+		}
+		committed = true
+		return true
+	})
+	return newIncarnation, committed, err
+}
+
 // StampRecreateFromInPlace converts an in-flight in-place roll into
 // the recreate roll for the same target: Incarnation bumped so the
 // rebuilt pod is distinguishable, Step moved to Drain so the recreate's

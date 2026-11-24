@@ -565,6 +565,8 @@ func populatedInstanceStatus() v1beta1.OMENativeInstanceStatus {
 		Operation:         &v1beta1.InstanceOperation{ID: "operation-a", Type: v1beta1.InstanceOperationMigrate, Step: "WaitReady", StartedAt: now, LastProgressAt: now, Deadline: now, RetryCount: 1, TargetRevision: "revision-b", Reason: "placement", SurgeIndex: &surgeIndex, FromNode: "node-a", HintTargetNodes: []string{"node-b"}, RequestUUID: "request-a"},
 		LastFailure:       &v1beta1.InstanceTermination{PodName: "model-engine-7", ContainerName: "server", Reason: "OOMKilled", ExitCode: &exitCode, Message: "container terminated", Time: now},
 		Announced:         []string{"GangSplitRisk@operation-a"},
+		LastPlacedNodes:   []string{"node-a", "node-b"},
+		DegradedTopology:  &v1beta1.DegradedTopology{TotalAccelerators: 7, LastTransitionTime: &now, Nodes: []v1beta1.DegradedNodeAllocation{{NodeName: "node-a", Accelerators: 4}, {NodeName: "node-b", Accelerators: 3}}},
 	}
 }
 
